@@ -45,6 +45,11 @@ error_chain! {
             display("Cannot get a specific reference from repository")
         }
 
+        CannotDeleteReference(reference: String) {
+            description("Cannot delete a specific reference")
+            display("Cannot delete the reference '{}'", reference)
+        }
+
         CannotBuildTree {
             description("Cannot build Tree")
             display("Cannot build Tree")
