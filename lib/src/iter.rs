@@ -187,6 +187,19 @@ pub struct ReferenceDeletingIter<'r, I>
     inner: I
 }
 
+impl<'r, I> ReferenceDeletingIter<'r, I>
+    where I: Iterator<Item = git2::Reference<'r>>
+{
+    /// Delete, ignoring errors
+    ///
+    /// Delete all references returned by the wrapped iterator, ignoring all
+    /// errors.
+    ///
+    pub fn delete_ignoring(self) {
+        for _ in self {}
+    }
+}
+
 impl<'r, I> From<I> for ReferenceDeletingIter<'r, I>
     where I: Iterator<Item = git2::Reference<'r>>
 {
