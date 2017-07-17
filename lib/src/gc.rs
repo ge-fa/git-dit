@@ -33,6 +33,12 @@ pub type ReferenceCollector<'r> = iter::ReferenceDeletingIter<
 >;
 
 
+pub enum ReferenceCollectionSpec {
+    Never,
+    BackedByRemoteHead,
+}
+
+
 /// Builder for reference collecting iterators
 ///
 pub struct ReferenceCollectorBuilder<'r, I>
@@ -42,6 +48,8 @@ pub struct ReferenceCollectorBuilder<'r, I>
     issues: I,
     /// Should remote references be considered during collection?
     consider_remote_refs: bool,
+    /// Under what circumstances should local heads be collected?
+    collect_heads: ReferenceCollectionSpec,
 }
 
 impl<'r, I> ReferenceCollectorBuilder<'r, I>
@@ -62,6 +70,7 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
             repo: repo,
             issues: issues.into_iter(),
             consider_remote_refs: false,
+            collect_heads: ReferenceCollectionSpec::Never,
         }
     }
 
@@ -73,6 +82,16 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
     ///
     pub fn consider_remote_refs(mut self) -> Self {
         self.consider_remote_refs = true;
+        self
+    }
+
+    /// Causes local head references to be collected under a specified condition
+    ///
+    /// By default, heads are never collected. Using this function a user may
+    /// change this behaviour.
+    ///
+    pub fn collect_heads(mut self, condition: ReferenceCollectionSpec) -> Self {
+        self.collect_heads = condition;
         self
     }
 
@@ -101,6 +120,31 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
                     .chain_err(|| EK::CannotGetCommit)?
                     .id()
             )?;
+
+            {
+                // Whether the local head should be collected or not is computed
+                // here, in the exact same way it is for leaves. We do that
+                // because can't mix the computation with those of the leaves.
+                // It would cause head references to be removed if any message
+                // was posted as a reply to the current head.
+                let mut head_history = self.repo.revwalk().unwrap();
+                match self.collect_heads {
+                    ReferenceCollectionSpec::Never => {},
+                    ReferenceCollectionSpec::BackedByRemoteHead => {
+                        for item in issue.remote_refs(IssueRefType::Head)? {
+                            head_history.push(
+                                item?
+                                    .peel(git2::ObjectType::Commit)
+                                    .chain_err(|| EK::CannotGetCommit)?
+                                    .id()
+                            )?;
+                        }
+                    },
+                };
+                let mut referring_refs = iter::RefsReferringTo::new(head_history);
+                referring_refs.watch_ref(local_head)?;
+                referring_refs.collect_result_into(&mut refs_to_collect)?;
+            }
 
             // local leaves
             for item in issue.local_refs(IssueRefType::Leaf)? {
