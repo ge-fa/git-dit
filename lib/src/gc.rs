@@ -40,7 +40,8 @@ pub struct ReferenceCollectorBuilder<'r, I>
 {
     repo: &'r git2::Repository,
     issues: I,
-    // TODO: controlling flags/state
+    /// Should remote references be considered during collection?
+    consider_remote_refs: bool,
 }
 
 impl<'r, I> ReferenceCollectorBuilder<'r, I>
@@ -50,6 +51,9 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
     ///
     /// The builder will create a collector for collecting references associated
     /// to the issues provided.
+    /// By default only local references are considered during the collection,
+    /// e.g. references which are unnecessary due to remote references are not
+    /// collected.
     ///
     pub fn new<J>(repo: &'r git2::Repository, issues: J) -> Self
         where J: IntoIterator<Item = Issue<'r>, IntoIter = I>
@@ -57,11 +61,20 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
         ReferenceCollectorBuilder {
             repo: repo,
             issues: issues.into_iter(),
-            // TODO: set initial values for flags
+            consider_remote_refs: false,
         }
     }
 
-    // TODO: mutating functions
+    /// Causes remote references to be considered
+    ///
+    /// By default, only local references are considered for deciding which
+    /// references will be collected. Calling this function causes the resulting
+    /// builder to also consider remote references.
+    ///
+    pub fn consider_remote_refs(mut self) -> Self {
+        self.consider_remote_refs = true;
+        self
+    }
 
     /// Create a new ReferenceCollector
     ///
@@ -97,6 +110,13 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
                 //       `RefsReferringTo` report that exact same reference.
                 Self::push_ref_parents(&mut messages, &leaf)?;
                 refs_to_assess.push(leaf);
+            }
+
+            // remote refs
+            if self.consider_remote_refs {
+                for item in issue.local_refs(IssueRefType::Leaf)? {
+                    refs_to_assess.push(item?);
+                }
             }
         }
 
