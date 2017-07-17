@@ -202,11 +202,12 @@ impl<'r, I> ReferenceDeletingIter<'r, I>
     }
 }
 
-impl<'r, I> From<I> for ReferenceDeletingIter<'r, I>
-    where I: Iterator<Item = git2::Reference<'r>>
+impl<'r, I, J> From<J> for ReferenceDeletingIter<'r, I>
+    where I: Iterator<Item = git2::Reference<'r>>,
+          J: IntoIterator<Item = git2::Reference<'r>, IntoIter = I>
 {
-    fn from(iter: I) -> Self {
-        ReferenceDeletingIter { inner: iter }
+    fn from(items: J) -> Self {
+        ReferenceDeletingIter { inner: items.into_iter() }
     }
 }
 
@@ -226,3 +227,4 @@ impl<'r, I> Iterator for ReferenceDeletingIter<'r, I>
             .next()
     }
 }
+
