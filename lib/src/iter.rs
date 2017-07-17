@@ -156,6 +156,12 @@ impl<'r> Iterator for RefsReferringTo<'r> {
                 return Some(Ok(reference));
             }
 
+            // Refills may be rather expensive. Let's check whether we have any
+            // refs left, first.
+            if self.refs.is_empty() {
+                return None;
+            }
+
             // refill the stash of references for the next commit
             'refill: for item in &mut self.inner {
                 match item.chain_err(|| EK::CannotGetCommit) {
