@@ -136,9 +136,11 @@ impl<'r> RefsReferringTo<'r> {
 
     /// Start watching a number of references
     ///
-    pub fn watch_refs(&mut self, references: git2::References<'r>) -> Result<()> {
-        for reference in references {
-            self.watch_ref(reference.chain_err(|| EK::CannotGetReference)?)?;
+    pub fn watch_refs<I>(&mut self, references: I) -> Result<()>
+        where I: IntoIterator<Item = git2::Reference<'r>>
+    {
+        for reference in references.into_iter() {
+            self.watch_ref(reference)?;
         }
         Ok(())
     }
