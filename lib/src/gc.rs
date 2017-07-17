@@ -69,11 +69,16 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
         // in this function, we assemble a list of references to collect
         let mut refs_to_collect = Vec::new();
 
-        //
+        // A part of those references is collected through a central
+        // `RefsReferringTo` iterator, which is constructed from information
+        // gathered from issues.
+        // We use one for all issues because some computational resources can
+        // and probably will be shared through the revwalk.
         let mut messages = self.repo.revwalk().unwrap();
         let mut refs_to_assess = Vec::new();
+
         for issue in self.issues {
-            // handle the different kinds of refs
+            // handle the different kinds of refs for the issue
 
             // local head
             let local_head = issue.local_head()?;
@@ -84,12 +89,14 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
                     .id()
             )?;
 
-            { // local leaves
-                let mut leaves = issue
-                    .local_refs(IssueRefType::Leaf)?
-                    .collect_result()?;
-                Self::push_ref_parents(&mut messages, leaves.iter())?;
-                refs_to_assess.append(&mut leaves);
+            // local leaves
+            for item in issue.local_refs(IssueRefType::Leaf)? {
+                let leaf = item?;
+                // NOTE: We push the parents of the references rather than the
+                //       references themselves since that would cause the
+                //       `RefsReferringTo` report that exact same reference.
+                Self::push_ref_parents(&mut messages, &leaf)?;
+                refs_to_assess.push(leaf);
             }
         }
 
@@ -101,18 +108,17 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
         Ok(ReferenceCollector::from(refs_to_collect))
     }
 
-    fn push_ref_parents<'a, J>(target: &mut git2::Revwalk, iter: J) -> Result<()>
-        where J: Iterator<Item = &'a Reference<'a>>,
+    /// Push the parents of a referred commit to a revwalk
+    ///
+    fn push_ref_parents<'a>(target: &mut git2::Revwalk, reference: &'a Reference<'a>) -> Result<()>
     {
-        let referred_commits = iter
-            .map(|item| {
-                item.peel(git2::ObjectType::Commit).chain_err(|| EK::CannotGetCommit)
-                    .and_then(|o| o.into_commit().map_err(|o| Error::from_kind(EK::CannotGetCommitForRev(o.id().to_string()))))
-            });
-        for commit in referred_commits {
-            for parent in commit?.parent_ids() {
-                target.push(parent)?;
-            }
+        let referred_commit = reference
+            .peel(git2::ObjectType::Commit)
+            .chain_err(|| EK::CannotGetCommit)?
+            .into_commit()
+            .map_err(|o| Error::from_kind(EK::CannotGetCommitForRev(o.id().to_string())))?;
+        for parent in referred_commit.parent_ids() {
+            target.push(parent)?;
         }
         Ok(())
     }
