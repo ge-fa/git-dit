@@ -143,7 +143,7 @@ impl<'r, I> CollectableRefs<'r, I>
                 };
                 let mut referring_refs = iter::RefsReferringTo::new(head_history);
                 referring_refs.watch_ref(local_head)?;
-                referring_refs.collect_result_into(&mut refs_to_collect)?;
+                referring_refs.collect_result_into(&mut retval)?;
             }
 
             // local leaves
