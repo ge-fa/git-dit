@@ -78,7 +78,7 @@ impl<'r, I> CollectableRefs<'r, I>
     ///
     /// By default, only local references are considered for deciding which
     /// references will be collected. Calling this function causes the resulting
-    /// builder to also consider remote references.
+    /// struct to also consider remote references.
     ///
     pub fn consider_remote_refs(mut self) -> Self {
         self.consider_remote_refs = true;
