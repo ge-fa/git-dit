@@ -80,8 +80,8 @@ impl<'r, I> CollectableRefs<'r, I>
     /// references will be collected. Calling this function causes the resulting
     /// struct to also consider remote references.
     ///
-    pub fn consider_remote_refs(mut self) -> Self {
-        self.consider_remote_refs = true;
+    pub fn consider_remote_refs(mut self, option: bool) -> Self {
+        self.consider_remote_refs = option;
         self
     }
 
