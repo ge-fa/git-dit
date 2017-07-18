@@ -122,9 +122,7 @@ impl<'r, I> CollectableRefs<'r, I>
                         .chain_err(|| EK::CannotGetCommit)?
                         .id()
                 )?;
-            }
 
-            {
                 // Whether the local head should be collected or not is computed
                 // here, in the exact same way it is for leaves. We do that
                 // because can't mix the computation with those of the leaves.
