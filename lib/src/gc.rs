@@ -39,9 +39,12 @@ pub enum ReferenceCollectionSpec {
 }
 
 
-/// Builder for reference collecting iterators
+/// Type representing collectable references
 ///
-pub struct ReferenceCollectorBuilder<'r, I>
+/// Use this type in order to compute dit-references which are no longer
+/// required and thus may be collected.
+///
+pub struct CollectableRefs<'r, I>
     where I: Iterator<Item = Issue<'r>>
 {
     repo: &'r git2::Repository,
@@ -52,21 +55,18 @@ pub struct ReferenceCollectorBuilder<'r, I>
     collect_heads: ReferenceCollectionSpec,
 }
 
-impl<'r, I> ReferenceCollectorBuilder<'r, I>
+impl<'r, I> CollectableRefs<'r, I>
     where I: Iterator<Item = Issue<'r>>
 {
-    /// Create a new builder
+    /// Create a new CollectableRefs object
     ///
-    /// The builder will create a collector for collecting references associated
-    /// to the issues provided.
-    /// By default only local references are considered during the collection,
-    /// e.g. references which are unnecessary due to remote references are not
-    /// collected.
+    /// By default only local references are considered, e.g. references which
+    /// are unnecessary due to remote references are not reported.
     ///
     pub fn new<J>(repo: &'r git2::Repository, issues: J) -> Self
         where J: IntoIterator<Item = Issue<'r>, IntoIter = I>
     {
-        ReferenceCollectorBuilder {
+        CollectableRefs {
             repo: repo,
             issues: issues.into_iter(),
             consider_remote_refs: false,
@@ -95,11 +95,11 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
         self
     }
 
-    /// Create a new ReferenceCollector
+    /// Perform the computation of references to collect.
     ///
-    pub fn create(self) -> Result<ReferenceCollector<'r>> {
+    pub fn into_refs(self) -> Result<Vec<Reference<'r>>> {
         // in this function, we assemble a list of references to collect
-        let mut refs_to_collect = Vec::new();
+        let mut retval = Vec::new();
 
         // A part of those references is collected through a central
         // `RefsReferringTo` iterator, which is constructed from information
@@ -167,9 +167,16 @@ impl<'r, I> ReferenceCollectorBuilder<'r, I>
         // collect refs referring to part of DAG to clean
         let mut referring_refs = iter::RefsReferringTo::new(messages);
         referring_refs.watch_refs(refs_to_assess)?;
-        referring_refs.collect_result_into(&mut refs_to_collect)?;
+        referring_refs.collect_result_into(&mut retval)?;
 
-        Ok(ReferenceCollector::from(refs_to_collect))
+        Ok(retval)
+    }
+
+    /// Transform directly into a reference collection iterator
+    ///
+    pub fn into_collector(self) -> Result<ReferenceCollector<'r>> {
+        self.into_refs()
+            .map(ReferenceCollector::from)
     }
 
     /// Push the parents of a referred commit to a revwalk
