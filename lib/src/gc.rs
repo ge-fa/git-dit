@@ -113,13 +113,16 @@ impl<'r, I> CollectableRefs<'r, I>
             // handle the different kinds of refs for the issue
 
             // local head
-            let local_head = issue.local_head()?;
-            messages.push(
-                local_head
-                    .peel(git2::ObjectType::Commit)
-                    .chain_err(|| EK::CannotGetCommit)?
-                    .id()
-            )?;
+            if let Some(local_head) = issue.local_head().ok() {
+                // Its ok to ignore failures to retrieve the local head. It will
+                // not be present in user's repositories anyway.
+                messages.push(
+                    local_head
+                        .peel(git2::ObjectType::Commit)
+                        .chain_err(|| EK::CannotGetCommit)?
+                        .id()
+                )?;
+            }
 
             {
                 // Whether the local head should be collected or not is computed
