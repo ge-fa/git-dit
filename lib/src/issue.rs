@@ -51,7 +51,7 @@ impl IssueRefType {
         // The ref type is denominated by the last few elements.
         let preliminary_ref_type = match parts.next() {
             Some("head") => IssueRefType::Head,
-            Some(part) => if Oid::from_str(part).is_ok() {
+            Some(part) => if Self::id_from_str(part).is_some() {
                 // The last element might be an id, in which case the second
                 // last part should tell us the meaning of the id.
                 match parts.next() {
@@ -66,7 +66,7 @@ impl IssueRefType {
 
         // The denominating end of the reference is preceeded by an issue id of
         // some sort.
-        if let Some(id) = parts.next().map(Oid::from_str).and_then(RResult::ok) {
+        if let Some(id) = parts.next().and_then(Self::id_from_str) {
             // A dit reference also has to contain a "dit" denominator at some
             // point.
             if parts.any(|part| part == "dit") {
@@ -75,6 +75,19 @@ impl IssueRefType {
         }
 
         None
+    }
+
+    /// Create an Oid from a full 40-character representation
+    ///
+    /// If the number of characters is not exactly 40 or the string is not an
+    /// Oid-representation, `None` is returned.
+    ///
+    fn id_from_str(id: &str) -> Option<Oid> {
+        if id.len() == 40 {
+            Oid::from_str(id).ok()
+        } else {
+            None
+        }
     }
 }
 
